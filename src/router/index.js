@@ -14,15 +14,21 @@ const routes = [
         meta: { requiresGuest: true },
     },
     {
-        path: '/test',
-        name: 'test',
-        component: () => import('../views/TestView.vue'),
+        path: '/home',
+        name: 'home',
+        component: () => import('../views/HomeView.vue'),
         meta: { requiresAuth: true },
     },
     {
-        path: '/results',
-        name: 'results',
-        component: () => import('../views/ResultsView.vue'),
+        path: '/test',
+        name: 'test',
+        component: () => import('../views/TestView.vue'),
+        meta: { requiresAuth: true, requiresInProgress: true },
+    },
+    {
+        path: '/review',
+        name: 'review',
+        component: () => import('../views/ReviewView.vue'),
         meta: { requiresAuth: true, requiresCompleted: true },
     },
 ]
@@ -40,12 +46,16 @@ router.beforeEach((to) => {
         return { name: 'login' }
     }
 
+    if (to.meta.requiresInProgress && test.status !== 'in_progress') {
+        return { name: 'home' }
+    }
+
     if (to.meta.requiresCompleted && test.status !== 'completed') {
-        return { name: 'login' }
+        return { name: 'home' }
     }
 
     if (to.meta.requiresGuest && auth.isAuthenticated) {
-        return { name: 'test' }
+        return { name: 'home' }
     }
 })
 

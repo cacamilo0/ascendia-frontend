@@ -1,104 +1,150 @@
 import { defineStore } from 'pinia'
 
-// Agrupa bloques STANDALONE consecutivos en uno solo
-function normalizeBlocks(blocks) {
-    const result = []
-
+function normalizeQuestions(blocks) {
+    const questions = []
     for (const block of blocks) {
-        if (block.type === 'STANDALONE') {
-            const last = result[result.length - 1]
-            if (last?.type === 'STANDALONE') {
-                // Agrupa con el bloque STANDALONE anterior
-                last.questions.push(...block.questions)
-            } else {
-                // Crea nuevo bloque STANDALONE con copia del array
-                result.push({ ...block, questions: [...block.questions] })
-            }
-        } else {
-            result.push(block)
+        for (const question of block.questions) {
+            questions.push({
+                ...question,
+                passage: block.passage ?? null,
+            })
         }
     }
-
-    return result
+    return questions
 }
 
 export const useTestStore = defineStore('test', {
     state: () => ({
         sessionId: null,
+        mode: null,
         area: null,
-        blocks: [],
+        questions: [],
+        currentIndex: 0,
         answers: {},
-        results: null,
-        status: 'idle', // idle | loading | in_progress | submitting | completed
+        feedback: {},
+        tips: {},
+        finishData: null,
+        review: null,
+        status: 'idle',
     }),
 
     getters: {
-        totalQuestions: (state) =>
-            state.blocks.reduce((sum, block) => sum + block.questions.length, 0),
+        totalQuestions: (state) => state.questions.length,
+
+        currentQuestion: (state) => state.questions[state.currentIndex] ?? null,
 
         answeredCount: (state) => Object.keys(state.answers).length,
 
-        isComplete: (state) => {
-            const total = state.blocks.reduce((sum, block) => sum + block.questions.length, 0)
+        omittedCount: (state) => {
+            const total = state.questions.length
             const answered = Object.keys(state.answers).length
-            return answered === total && total > 0
+            return total - answered
         },
 
-        answersPayload: (state) =>
-            Object.entries(state.answers).map(([questionId, selectedOptionId]) => ({
-                questionId: Number(questionId),
-                selectedOptionId,
-            })),
+        isFirst: (state) => state.currentIndex === 0,
+
+        isLast: (state) => state.currentIndex === state.questions.length - 1,
+
+        progressPercent: (state) => {
+            if (state.questions.length === 0) return 0
+            return Math.round((Object.keys(state.answers).length / state.questions.length) * 100)
+        },
     },
 
     actions: {
-        setSession(sessionId, area, blocks) {
+        setSession(sessionId, mode, area, blocks) {
             this.sessionId = sessionId
+            this.mode = mode
             this.area = area
-            this.blocks = normalizeBlocks(blocks)
+            this.questions = normalizeQuestions(blocks)
+            this.currentIndex = 0
             this.answers = {}
+            this.feedback = {}
+            this.tips = {}
+            this.finishData = null
+            this.review = null
             this.status = 'in_progress'
-            this._persistSession()
+            this._persist()
         },
 
-        answerQuestion(questionId, selectedOptionId) {
+        setAnswer(questionId, selectedOptionId) {
             this.answers[questionId] = selectedOptionId
-            this._persistSession()
+            this._persist()
         },
 
-        setResults(results) {
-            this.results = results
+        setFeedback(questionId, feedbackData) {
+            this.feedback[questionId] = feedbackData
+        },
+
+        setTip(questionId, tip) {
+            this.tips[questionId] = tip
+        },
+
+        setFinishData(data) {
+            this.finishData = data
+        },
+
+        setReview(data) {
+            this.review = data
             this.status = 'completed'
             localStorage.removeItem('ascendia_session')
         },
 
-        restoreSession() {
+        goNext() {
+            if (this.currentIndex < this.questions.length - 1) {
+                this.currentIndex++
+            }
+        },
+
+        goPrev() {
+            if (this.currentIndex > 0) {
+                this.currentIndex--
+            }
+        },
+
+        restore() {
             const saved = localStorage.getItem('ascendia_session')
             if (!saved) return false
-            const { sessionId, answers } = JSON.parse(saved)
-            this.sessionId = sessionId
-            this.answers = answers
-            return true
+            try {
+                const { sessionId, mode, area, questions, currentIndex, answers } = JSON.parse(saved)
+                this.sessionId = sessionId
+                this.mode = mode
+                this.area = area
+                this.questions = questions
+                this.currentIndex = currentIndex ?? 0
+                this.answers = answers ?? {}
+                this.status = 'in_progress'
+                return true
+            } catch {
+                localStorage.removeItem('ascendia_session')
+                return false
+            }
         },
 
         reset() {
             this.sessionId = null
+            this.mode = null
             this.area = null
-            this.blocks = []
+            this.questions = []
+            this.currentIndex = 0
             this.answers = {}
-            this.results = null
+            this.feedback = {}
+            this.tips = {}
+            this.finishData = null
+            this.review = null
             this.status = 'idle'
             localStorage.removeItem('ascendia_session')
         },
 
-        _persistSession() {
-            localStorage.setItem(
-                'ascendia_session',
-                JSON.stringify({
-                    sessionId: this.sessionId,
-                    answers: this.answers,
-                })
-            )
+        _persist() {
+            localStorage.setItem('ascendia_session', JSON.stringify({
+                sessionId: this.sessionId,
+                mode: this.mode,
+                area: this.area,
+                questions: this.questions,
+                currentIndex: this.currentIndex,
+                answers: this.answers,
+            }))
         },
     },
 })
