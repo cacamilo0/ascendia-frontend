@@ -10,6 +10,9 @@
           :text="option.text"
           :label="labels[i]"
           :selected="selectedOptionId === option.id"
+          :disabled="!!selectedOptionId && mode === 'PRACTICE'"
+          :correct="feedback && option.id === feedback.correctOptionId"
+          :incorrect="feedback && selectedOptionId === option.id && !feedback.correct"
           @select="$emit('answer', question.id, option.id)"
       />
     </div>
@@ -23,6 +26,8 @@ defineProps({
   question: Object,
   index: Number,
   selectedOptionId: { type: Number, default: null },
+  mode: String,
+  feedback: { type: Object, default: null },
 })
 
 defineEmits(['answer'])

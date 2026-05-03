@@ -64,13 +64,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
-import { useTestStore } from '../stores/test.js'
 import { login } from '../api/auth.js'
-import { startTest, getQuestions } from '../api/test.js'
 
 const router = useRouter()
 const auth = useAuthStore()
-const test = useTestStore()
 
 const email = ref('')
 const password = ref('')
@@ -84,20 +81,9 @@ async function handleLogin() {
   error.value = null
 
   try {
-    // 1. Login
     const { userId } = await login(email.value, password.value)
     auth.setUser(userId, email.value)
-
-    // 2. Iniciar test
-    const { sessionId } = await startTest(userId)
-
-    // 3. Cargar preguntas
-    const { area, blocks } = await getQuestions(sessionId)
-
-    // 4. Guardar en store y navegar
-    test.setSession(sessionId, area, blocks)
-    router.push({ name: 'test' })
-
+    router.push({ name: 'home' })
   } catch (err) {
     error.value = err.message || 'No se pudo iniciar sesión. Intenta de nuevo.'
   } finally {
